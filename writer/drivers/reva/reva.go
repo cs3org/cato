@@ -124,7 +124,7 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.DocumentationInfo, fil
 	lines = append(lines, "")
 
 	for s, fields := range configs {
-		lines = append(lines, fmt.Sprintf("struct %s\n", s))
+		lines = append(lines, fmt.Sprintf("# _struct: %s_\n", s))
 
 		for _, f := range fields {
 			var escapedDefaultValue, tomlPath string

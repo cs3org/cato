@@ -51,42 +51,60 @@ func parseStruct(structDef *ast.StructType, catoTag string, fset *token.FileSet)
 	configs := []*resources.DocumentationInfo{}
 
 	for _, field := range structDef.Fields.List {
-		// get field.Type as string
-		var typeNameBuf bytes.Buffer
-		err := printer.Fprint(&typeNameBuf, fset, field.Type)
-		if err != nil {
-			return nil, fmt.Errorf("error decoding struct field name: %w", err)
-		}
-
 		if field.Tag != nil {
+
 			tag := reflect.StructTag(strings.Trim(field.Tag.Value, "`"))
-
-			var fieldName string
-			for _, namedTag := range namedTags {
-				if t := tag.Get(namedTag); t != "" {
-					fieldName = strings.Split(t, ",")[0]
-				}
-			}
-			if fieldName == "" {
-				fieldName = field.Names[0].Name
-			}
-
 			configTag := tag.Get(catoTag)
+
 			if configTag != "" {
-				splitVals := strings.Split(configTag, ";")
-				if len(splitVals) < 2 {
-					return nil, fmt.Errorf("Not enough values present in tag")
+				// get field.Type as string
+				var typeNameBuf bytes.Buffer
+				err := printer.Fprint(&typeNameBuf, fset, field.Type)
+				if err != nil {
+					return nil, fmt.Errorf("error decoding struct field name: %w", err)
 				}
-				if len(splitVals) < 3 {
-					splitVals = []string{fieldName, splitVals[0], splitVals[1]}
-				} else if splitVals[0] == "" {
-					splitVals[0] = fieldName
+
+				var fieldName string
+				for _, namedTag := range namedTags {
+					if t := tag.Get(namedTag); t != "" {
+						fieldName = strings.Split(t, ",")[0]
+					}
+				}
+				if fieldName == "" {
+					fieldName = field.Names[0].Name
+				}
+
+				var desc string
+				if field.Doc != nil {
+					comments := []string{}
+					for _, c := range field.Doc.List {
+						c.Text = strings.ReplaceAll(c.Text, "//", "")
+						c.Text = strings.ReplaceAll(c.Text, "/*", "")
+						c.Text = strings.ReplaceAll(c.Text, "*/", "")
+						c.Text = strings.Join(strings.Fields(c.Text), " ")
+						comments = append(comments, c.Text)
+					}
+					desc = strings.Join(comments, " ")
+				}
+
+				var defaultVal string
+
+				switch splitVals := strings.Split(configTag, ";"); len(splitVals) {
+				case 1:
+					defaultVal = splitVals[0]
+				case 2:
+					defaultVal = splitVals[0]
+					desc = splitVals[1]
+				case 3:
+					fieldName = splitVals[0]
+					defaultVal = splitVals[1]
+					desc = splitVals[2]
 				}
 
 				configs = append(configs, &resources.DocumentationInfo{
-					FieldName:    splitVals[0],
-					DefaultValue: splitVals[1],
-					Description:  splitVals[2],
+					FieldName:    fieldName,
+					DefaultValue: defaultVal,
+					Description:  desc,
 					DataType:     typeNameBuf.String(),
 				})
 			}
