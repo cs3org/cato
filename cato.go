@@ -15,8 +15,8 @@ import (
 
 	"github.com/cs3org/cato/resources"
 	"github.com/cs3org/cato/writer"
+	_ "github.com/cs3org/cato/writer/drivers/loader"
 	"github.com/cs3org/cato/writer/drivers/registry"
-	// "github.com/gohugoio/hugo/parser/pageparser"
 )
 
 type structInfo struct {

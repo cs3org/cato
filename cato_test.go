@@ -4,11 +4,10 @@ import (
 	"testing"
 
 	"github.com/cs3org/cato/resources"
-	_ "github.com/cs3org/cato/writer/drivers/reva"
 )
 
 func TestCato(t *testing.T) {
-	rootPath := "/home/reva/"
+	rootPath := "/path/to/reva/"
 	conf := &resources.CatoConfig{
 		Driver: "reva",
 		DriverConfig: map[string]map[string]interface{}{
