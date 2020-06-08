@@ -101,6 +101,10 @@ func parseStruct(structDef *ast.StructType, catoTag string, fset *token.FileSet)
 					desc = splitVals[2]
 				}
 
+				if typeNameBuf.String() == "string" {
+					defaultVal = fmt.Sprintf("\"%s\"", defaultVal)
+				}
+
 				configs = append(configs, &resources.DocumentationInfo{
 					FieldName:    fieldName,
 					DefaultValue: defaultVal,
@@ -183,9 +187,11 @@ func GenerateDocumentation(rootPath string, conf *resources.CatoConfig) error {
 			return fmt.Errorf("cato: error parsing go file: %w", err)
 		}
 
-		err = writerDriver.WriteConfigs(configs, file, rootPath)
-		if err != nil {
-			return fmt.Errorf("cato: error writing documentation: %w", err)
+		if len(configs) > 0 {
+			err = writerDriver.WriteConfigs(configs, file, rootPath)
+			if err != nil {
+				return fmt.Errorf("cato: error writing documentation: %w", err)
+			}
 		}
 	}
 	return nil

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"strings"
 	"text/template"
 
@@ -18,11 +19,11 @@ import (
 const (
 	mdFile = "_index.md"
 
-	configDefaultTemplate = "{{`{{%`}} dir name=\"{{ .Config.FieldName}}\" type=\"{{ .Config.DataType}}\" default=\"{{ .Config.DefaultValue}}\" {{`%}}`}}\n" +
+	configDefaultTemplate = "{{`{{%`}} dir name=\"{{ .Config.FieldName}}\" type=\"{{ .Config.DataType}}\" default={{ .Config.DefaultValue}} {{`%}}`}}\n" +
 		"{{ .Config.Description}}\n" +
 		"{{`{{< highlight toml >}}`}}\n" +
 		"[{{ .TomlPath}}]\n" +
-		"{{ .Config.FieldName}} = \"{{ .EscapedDefaultValue}}\"\n" +
+		"{{ .Config.FieldName}} = {{ .EscapedDefaultValue}}\n" +
 		"{{`{{< /highlight >}}`}}\n" +
 		"{{`{{% /dir %}}`}}\n"
 
@@ -33,6 +34,14 @@ const (
 		"{{ .EscapedDefaultValue}}\n" +
 		"{{`{{< /highlight >}}`}}\n" +
 		"{{`{{% /dir %}}`}}\n"
+
+	headerTemplate = "---\n" +
+		"title: \"{{ .Name}}\"\n" +
+		"linkTitle: \"{{ .Name}}\"\n" +
+		"weight: 10\n" +
+		"description: >\n" +
+		"  Configuration for the {{ .Name}} service\n" +
+		"---"
 )
 
 func init() {
@@ -61,6 +70,54 @@ func parseConfig(m map[string]interface{}) (*config, error) {
 	return c, nil
 }
 
+func createMDFiles(root, mdDir string) error {
+	th, err := template.New("revaHeader").Parse(headerTemplate)
+	if err != nil {
+		return err
+	}
+
+	err = os.MkdirAll(mdDir, 0700)
+	if err != nil {
+		return err
+	}
+
+	for strings.HasPrefix(mdDir, root) {
+		docFile := path.Join(mdDir, mdFile)
+		_, err := os.Stat(docFile)
+
+		if err != nil {
+			if os.IsNotExist(err) {
+				f, err := os.Create(docFile)
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+
+				svc := struct {
+					Name string
+				}{
+					Name: path.Base(mdDir),
+				}
+				b := bytes.Buffer{}
+				err = th.Execute(&b, svc)
+				if err != nil {
+					return err
+				}
+
+				_, err = f.WriteString(b.String())
+				if err != nil {
+					return err
+				}
+			} else {
+				return err
+			}
+		}
+		mdDir = path.Dir(mdDir)
+	}
+
+	return nil
+}
+
 func New(m map[string]interface{}) (writer.ConfigWriter, error) {
 
 	conf, err := parseConfig(m)
@@ -76,16 +133,19 @@ func New(m map[string]interface{}) (writer.ConfigWriter, error) {
 
 func (m mgr) WriteConfigs(configs map[string][]*resources.DocumentationInfo, filePath, rootPath string) error {
 
-	td, err := template.New("catoDefault").Parse(configDefaultTemplate)
+	td, err := template.New("revaDefault").Parse(configDefaultTemplate)
 	if err != nil {
 		return err
 	}
-	tp, err := template.New("catoPointer").Parse(configPointerTemplate)
+	tp, err := template.New("revaPointer").Parse(configPointerTemplate)
 	if err != nil {
 		return err
 	}
 
-	docFileSuffix := strings.TrimPrefix(path.Dir(filePath), rootPath)
+	docFileSuffix, err := filepath.Rel(rootPath, path.Dir(filePath))
+	if err != nil {
+		return err
+	}
 
 	var match string
 	for k := range m.c.DocPaths {
@@ -94,8 +154,19 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.DocumentationInfo, fil
 		}
 	}
 
-	configName := strings.TrimPrefix(docFileSuffix, match)
-	docFile := path.Join(rootPath, m.c.DocPaths[match], configName, mdFile)
+	configName, err := filepath.Rel(match, docFileSuffix)
+	if err != nil {
+		return err
+	}
+
+	docsRoot := path.Join(rootPath, m.c.DocPaths[match])
+	mdDir := path.Join(docsRoot, configName)
+	docFile := path.Join(mdDir, mdFile)
+
+	err = createMDFiles(docsRoot, mdDir)
+	if err != nil {
+		return err
+	}
 
 	fi, err := os.Open(docFile)
 	if err != nil {
