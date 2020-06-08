@@ -16,6 +16,7 @@ func TestCato(t *testing.T) {
 					"internal/": "docs/content/en/docs/config/",
 					"pkg/":      "docs/content/en/docs/config/packages/",
 				},
+				"ReferenceBase": "https://github.com/cs3org/reva/tree/master",
 			},
 		},
 	}

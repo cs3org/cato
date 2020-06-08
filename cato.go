@@ -1,6 +1,7 @@
 package cato
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"go/ast"
@@ -47,8 +48,38 @@ func listGoFiles(rootPath string) ([]string, error) {
 	return fileList, nil
 }
 
-func parseStruct(structDef *ast.StructType, catoTag string, fset *token.FileSet) ([]*resources.DocumentationInfo, error) {
-	configs := []*resources.DocumentationInfo{}
+func getLineInitialPositions(filePath string) ([]int, error) {
+	f, err := os.Open(filePath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var charCount int
+	initPositions := []int{0}
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		charCount = charCount + len(scanner.Text())
+		initPositions = append(initPositions, charCount)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return initPositions, nil
+}
+
+func getLineNumber(lineNos []int, pos int) (int, error) {
+	for i, n := range lineNos {
+		if pos <= n {
+			return i, nil
+		}
+	}
+
+	return -1, fmt.Errorf("position exceeds total characters in the file")
+}
+
+func parseStruct(structDef *ast.StructType, catoTag, filePath string, fset *token.FileSet, lineNos []int) ([]*resources.FieldInfo, error) {
+	configs := []*resources.FieldInfo{}
 
 	for _, field := range structDef.Fields.List {
 		if field.Tag != nil {
@@ -105,11 +136,18 @@ func parseStruct(structDef *ast.StructType, catoTag string, fset *token.FileSet)
 					defaultVal = fmt.Sprintf("\"%s\"", defaultVal)
 				}
 
-				configs = append(configs, &resources.DocumentationInfo{
+				lineNumber, err := getLineNumber(lineNos, int(field.Pos()))
+				fmt.Printf("%s: %d %d\n", fieldName, int(field.Pos()), lineNumber)
+				if err != nil {
+					return nil, err
+				}
+
+				configs = append(configs, &resources.FieldInfo{
 					FieldName:    fieldName,
 					DefaultValue: defaultVal,
 					Description:  desc,
 					DataType:     typeNameBuf.String(),
+					LineNumber:   lineNumber,
 				})
 			}
 		}
@@ -118,15 +156,20 @@ func parseStruct(structDef *ast.StructType, catoTag string, fset *token.FileSet)
 	return configs, nil
 }
 
-func getConfigsToDocument(filePath, catoTag string) (map[string][]*resources.DocumentationInfo, error) {
+func getConfigsToDocument(filePath, catoTag string) (map[string][]*resources.FieldInfo, error) {
 	fset := token.NewFileSet()
 	fileTree, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 	if err != nil {
 		return nil, err
 	}
 
+	lineNos, err := getLineInitialPositions(filePath)
+	if err != nil {
+		return nil, err
+	}
+
 	structList := []*structInfo{}
-	configs := map[string][]*resources.DocumentationInfo{}
+	configs := map[string][]*resources.FieldInfo{}
 
 	ast.Inspect(fileTree, func(node ast.Node) bool {
 		spec, ok := node.(*ast.TypeSpec)
@@ -142,7 +185,7 @@ func getConfigsToDocument(filePath, catoTag string) (map[string][]*resources.Doc
 	})
 
 	for _, s := range structList {
-		c, err := parseStruct(s.StructDef, catoTag, fset)
+		c, err := parseStruct(s.StructDef, catoTag, filePath, fset, lineNos)
 		if err != nil {
 			return nil, err
 		}

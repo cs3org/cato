@@ -1,10 +1,11 @@
 package resources
 
-type DocumentationInfo struct {
+type FieldInfo struct {
 	FieldName    string
 	DataType     string
 	DefaultValue string
 	Description  string
+	LineNumber   int
 }
 
 type CatoConfig struct {

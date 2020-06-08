@@ -20,7 +20,7 @@ const (
 	mdFile = "_index.md"
 
 	configDefaultTemplate = "{{`{{%`}} dir name=\"{{ .Config.FieldName}}\" type=\"{{ .Config.DataType}}\" default={{ .Config.DefaultValue}} {{`%}}`}}\n" +
-		"{{ .Config.Description}}\n" +
+		"{{ .Config.Description}} {{ .ReferenceURL}}\n" +
 		"{{`{{< highlight toml >}}`}}\n" +
 		"[{{ .TomlPath}}]\n" +
 		"{{ .Config.FieldName}} = {{ .EscapedDefaultValue}}\n" +
@@ -28,7 +28,7 @@ const (
 		"{{`{{% /dir %}}`}}\n"
 
 	configPointerTemplate = "{{`{{%`}} dir name=\"{{ .Config.FieldName}}\" type=\"{{ .Config.DataType}}\" default=\"{{ .Config.DefaultValue}}\" {{`%}}`}}\n" +
-		"{{ .Config.Description}}\n" +
+		"{{ .Config.Description}} {{ .ReferenceURL}}\n" +
 		"{{`{{< highlight toml >}}`}}\n" +
 		"[{{ .TomlPath}}]\n" +
 		"{{ .EscapedDefaultValue}}\n" +
@@ -53,13 +53,15 @@ type mgr struct {
 }
 
 type config struct {
-	DocPaths map[string]string
+	DocPaths      map[string]string
+	ReferenceBase string
 }
 
 type templateParameters struct {
-	Config              *resources.DocumentationInfo
+	Config              *resources.FieldInfo
 	TomlPath            string
 	EscapedDefaultValue string
+	ReferenceURL        string
 }
 
 func parseConfig(m map[string]interface{}) (*config, error) {
@@ -131,7 +133,7 @@ func New(m map[string]interface{}) (writer.ConfigWriter, error) {
 	return mgr, nil
 }
 
-func (m mgr) WriteConfigs(configs map[string][]*resources.DocumentationInfo, filePath, rootPath string) error {
+func (m mgr) WriteConfigs(configs map[string][]*resources.FieldInfo, filePath, rootPath string) error {
 
 	td, err := template.New("revaDefault").Parse(configDefaultTemplate)
 	if err != nil {
@@ -198,6 +200,10 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.DocumentationInfo, fil
 		lines = append(lines, fmt.Sprintf("# _struct: %s_\n", s))
 
 		for _, f := range fields {
+			reference, err := filepath.Rel(rootPath, filePath)
+			if err != nil {
+				return err
+			}
 			var escapedDefaultValue, tomlPath string
 			var isPointer bool
 			if strings.HasPrefix(f.DefaultValue, "url:") {
@@ -214,6 +220,7 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.DocumentationInfo, fil
 				Config:              f,
 				TomlPath:            tomlPath,
 				EscapedDefaultValue: escapedDefaultValue,
+				ReferenceURL:        fmt.Sprintf("[[Ref]](%s/%s#L%d)", m.c.ReferenceBase, reference, f.LineNumber),
 			}
 
 			b := bytes.Buffer{}
