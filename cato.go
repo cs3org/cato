@@ -137,7 +137,6 @@ func parseStruct(structDef *ast.StructType, catoTag, filePath string, fset *toke
 				}
 
 				lineNumber, err := getLineNumber(lineNos, int(field.Pos()))
-				fmt.Printf("%s: %d %d\n", fieldName, int(field.Pos()), lineNumber)
 				if err != nil {
 					return nil, err
 				}
