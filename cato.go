@@ -55,11 +55,11 @@ func getLineInitialPositions(filePath string) ([]int, error) {
 	}
 	defer f.Close()
 
-	var charCount int
-	initPositions := []int{0}
+	charCount := 1
+	initPositions := []int{charCount}
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		charCount = charCount + len(scanner.Text())
+		charCount = charCount + len(scanner.Text()) + 1
 		initPositions = append(initPositions, charCount)
 	}
 	if err := scanner.Err(); err != nil {
