@@ -1,9 +1,9 @@
 package registry
 
-import "github.com/cs3org/cato/writer"
+import "github.com/cs3org/cato/exporter"
 
 // NewFunc is the function prototype that drivers should register at init.
-type NewFunc func(map[string]interface{}) (writer.ConfigWriter, error)
+type NewFunc func(map[string]interface{}) (exporter.ConfigExporter, error)
 
 // NewFuncs is a map containing all the registered drivers.
 var NewFuncs = map[string]NewFunc{}

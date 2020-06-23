@@ -10,9 +10,9 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/cs3org/cato/exporter"
+	"github.com/cs3org/cato/exporter/drivers/registry"
 	"github.com/cs3org/cato/resources"
-	"github.com/cs3org/cato/writer"
-	"github.com/cs3org/cato/writer/drivers/registry"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -120,7 +120,7 @@ func createMDFiles(root, mdDir string) error {
 	return nil
 }
 
-func New(m map[string]interface{}) (writer.ConfigWriter, error) {
+func New(m map[string]interface{}) (exporter.ConfigExporter, error) {
 
 	conf, err := parseConfig(m)
 	if err != nil {
@@ -133,7 +133,7 @@ func New(m map[string]interface{}) (writer.ConfigWriter, error) {
 	return mgr, nil
 }
 
-func (m mgr) WriteConfigs(configs map[string][]*resources.FieldInfo, filePath, rootPath string) error {
+func (m mgr) ExportConfigs(configs map[string][]*resources.FieldInfo, filePath, rootPath string) error {
 
 	td, err := template.New("revaDefault").Parse(configDefaultTemplate)
 	if err != nil {
@@ -176,7 +176,7 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.FieldInfo, filePath, r
 	}
 	defer fi.Close()
 
-	mdCount := 0
+	configLineCount := 0
 	lines := []string{}
 
 	scanner := bufio.NewScanner(fi)
@@ -184,15 +184,16 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.FieldInfo, filePath, r
 		currLine := scanner.Text()
 		lines = append(lines, currLine)
 		if strings.TrimSpace(currLine) == "---" {
-			mdCount = mdCount + 1
+			configLineCount = configLineCount + 1
 		}
-		if mdCount == 2 {
+		if configLineCount == 2 {
 			break
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		return err
 	}
+	fi.Close()
 
 	lines = append(lines, "")
 
@@ -200,10 +201,6 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.FieldInfo, filePath, r
 		lines = append(lines, fmt.Sprintf("# _struct: %s_\n", s))
 
 		for _, f := range fields {
-			reference, err := filepath.Rel(rootPath, filePath)
-			if err != nil {
-				return err
-			}
 			var escapedDefaultValue, tomlPath string
 			var isPointer bool
 			if strings.HasPrefix(f.DefaultValue, "url:") {
@@ -216,11 +213,21 @@ func (m mgr) WriteConfigs(configs map[string][]*resources.FieldInfo, filePath, r
 				escapedDefaultValue = f.DefaultValue
 				tomlPath = strings.ReplaceAll(configName, "/", ".")
 			}
+
+			var refURL string
+			if m.c.ReferenceBase != "" {
+				reference, err := filepath.Rel(rootPath, filePath)
+				if err != nil {
+					return err
+				}
+				refURL = fmt.Sprintf("[[Ref]](%s/%s#L%d)", m.c.ReferenceBase, reference, f.LineNumber)
+			}
+
 			params := templateParameters{
 				Config:              f,
 				TomlPath:            tomlPath,
 				EscapedDefaultValue: escapedDefaultValue,
-				ReferenceURL:        fmt.Sprintf("[[Ref]](%s/%s#L%d)", m.c.ReferenceBase, reference, f.LineNumber),
+				ReferenceURL:        refURL,
 			}
 
 			b := bytes.Buffer{}

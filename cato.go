@@ -14,10 +14,10 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/cs3org/cato/exporter"
+	_ "github.com/cs3org/cato/exporter/drivers/loader"
+	"github.com/cs3org/cato/exporter/drivers/registry"
 	"github.com/cs3org/cato/resources"
-	"github.com/cs3org/cato/writer"
-	_ "github.com/cs3org/cato/writer/drivers/loader"
-	"github.com/cs3org/cato/writer/drivers/registry"
 )
 
 type structInfo struct {
@@ -195,17 +195,17 @@ func getConfigsToDocument(filePath, catoTag string) (map[string][]*resources.Fie
 	return configs, nil
 }
 
-func getDriver(c *resources.CatoConfig) (writer.ConfigWriter, error) {
+func getDriver(c *resources.CatoConfig) (exporter.ConfigExporter, error) {
 	if f, ok := registry.NewFuncs[c.Driver]; ok {
 		return f(c.DriverConfig[c.Driver])
 	}
 	return nil, fmt.Errorf("driver not found: %s", c.Driver)
 }
 
-func GenerateDocumentation(rootPath string, conf *resources.CatoConfig) error {
+func GenerateDocumentation(rootPath string, conf *resources.CatoConfig) (map[string]map[string][]*resources.FieldInfo, error) {
 
 	if rootPath == "" {
-		return fmt.Errorf("cato: root path can't be empty")
+		return nil, fmt.Errorf("cato: root path can't be empty")
 	}
 
 	if conf.CustomTag == "" {
@@ -214,27 +214,30 @@ func GenerateDocumentation(rootPath string, conf *resources.CatoConfig) error {
 
 	fileList, err := listGoFiles(rootPath)
 	if err != nil {
-		return fmt.Errorf("cato: error listing root path: %w", err)
+		return nil, fmt.Errorf("cato: error listing root path: %w", err)
 	}
 
-	writerDriver, err := getDriver(conf)
+	exporterDriver, err := getDriver(conf)
+	exportConfigs := true
 	if err != nil {
-		return fmt.Errorf("cato: error getting driver: %w", err)
+		// We don't export configs in this case
+		exportConfigs = false
 	}
 
+	filesConfigs := map[string]map[string][]*resources.FieldInfo{}
 	for _, file := range fileList {
-
 		configs, err := getConfigsToDocument(file, conf.CustomTag)
 		if err != nil {
-			return fmt.Errorf("cato: error parsing go file: %w", err)
+			return nil, fmt.Errorf("cato: error parsing go file: %w", err)
 		}
 
-		if len(configs) > 0 {
-			err = writerDriver.WriteConfigs(configs, file, rootPath)
+		if exportConfigs && len(configs) > 0 {
+			err = exporterDriver.ExportConfigs(configs, file, rootPath)
 			if err != nil {
-				return fmt.Errorf("cato: error writing documentation: %w", err)
+				return nil, fmt.Errorf("cato: error writing documentation: %w", err)
 			}
+			filesConfigs[file] = configs
 		}
 	}
-	return nil
+	return filesConfigs, nil
 }
