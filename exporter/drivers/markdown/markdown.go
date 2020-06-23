@@ -16,13 +16,9 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-const (
-	mdFile = "index.md"
-
-	configDefaultTemplate = "- **{{ .Config.FieldName}}** - {{ .Config.DataType}}\n" +
-		"  - {{ .Config.Description}} {{ .ReferenceURL}}\n" +
-		"  - Default: {{ .EscapedDefaultValue}}"
-)
+const configDefaultTemplate = "- **{{ .Config.FieldName}}** - {{ .Config.DataType}}\n" +
+	"  - {{ .Config.Description}} {{ .ReferenceURL}}\n" +
+	"  - Default: {{ .EscapedDefaultValue}}"
 
 func init() {
 	registry.Register("markdown", New)
@@ -142,7 +138,7 @@ func (m mgr) ExportConfigs(configs map[string][]*resources.FieldInfo, filePath, 
 		}
 	}
 
-	docFile := path.Join(mdDir, mdFile)
+	docFile := path.Join(mdDir, strings.TrimSuffix(filepath.Base(filePath), ".go")+".md")
 	fo, err := os.Create(docFile)
 	if err != nil {
 		return err

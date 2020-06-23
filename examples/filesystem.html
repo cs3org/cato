@@ -1,4 +1,18 @@
 
+<h2>struct: UploadConfig</h2>
+<ul>
+  <li><b>disable_tus</b> - bool</li>
+  <ul>
+    <li>Whether to disable TUS protocol for uploads. </li>
+    <li>Default: false</li>
+  </ul>
+  <li><b>http_prefix</b> - string</li>
+  <ul>
+    <li>The prefix at which the uploads service should be exposed. </li>
+    <li>Default: "uploads"</li>
+  </ul>
+</ul>
+
 <h2>struct: FileSystem</h2>
 <ul>
   <li><b>CacheDirectory</b> - string</li>
@@ -25,19 +39,5 @@
   <ul>
     <li>Config for the HTTP uploads service </li>
     <li>Default: &UploadConfig{HTTPPrefix: uploads, DisableTus: false}</li>
-  </ul>
-</ul>
-
-<h2>struct: UploadConfig</h2>
-<ul>
-  <li><b>disable_tus</b> - bool</li>
-  <ul>
-    <li>Whether to disable TUS protocol for uploads. </li>
-    <li>Default: false</li>
-  </ul>
-  <li><b>http_prefix</b> - string</li>
-  <ul>
-    <li>The prefix at which the uploads service should be exposed. </li>
-    <li>Default: "uploads"</li>
   </ul>
 </ul>

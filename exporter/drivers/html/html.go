@@ -16,15 +16,11 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
-const (
-	htmlFile = "index.html"
-
-	configDefaultTemplate = "  <li><b>{{ .Config.FieldName}}</b> - {{ .Config.DataType}}</li>\n" +
-		"  <ul>\n" +
-		"    <li>{{ .Config.Description}} {{ .ReferenceURL}}</li>\n" +
-		"    <li>Default: {{ .EscapedDefaultValue}}</li>\n" +
-		"  </ul>"
-)
+const configDefaultTemplate = "  <li><b>{{ .Config.FieldName}}</b> - {{ .Config.DataType}}</li>\n" +
+	"  <ul>\n" +
+	"    <li>{{ .Config.Description}} {{ .ReferenceURL}}</li>\n" +
+	"    <li>Default: {{ .EscapedDefaultValue}}</li>\n" +
+	"  </ul>"
 
 func init() {
 	registry.Register("html", New)
@@ -146,7 +142,7 @@ func (m mgr) ExportConfigs(configs map[string][]*resources.FieldInfo, filePath, 
 		lines = append(lines, "</ul>")
 	}
 
-	docFile := path.Join(mdDir, htmlFile)
+	docFile := path.Join(mdDir, strings.TrimSuffix(filepath.Base(filePath), ".go")+".html")
 	fo, err := os.Create(docFile)
 	if err != nil {
 		return err
