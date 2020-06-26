@@ -46,6 +46,8 @@ func main() {
 }
 ```
 
+We've integrated Cato with [Reva](https://github.com/cs3org/reva/) using a make [rule](https://github.com/cs3org/reva/blob/master/tools/generate-documentation/main.go) with a custom driver, where it's being used in [production](https://reva.link/docs/config/grpc/services/storageprovider/).
+
 ## Workflow
 
 ### Extraction
