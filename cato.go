@@ -9,6 +9,7 @@ import (
 	"go/printer"
 	"go/token"
 	"os"
+	"path"
 	"path/filepath"
 	"reflect"
 	"regexp"
@@ -78,7 +79,17 @@ func getLineNumber(lineNos []int, pos int) (int, error) {
 	return -1, fmt.Errorf("position exceeds total characters in the file")
 }
 
-func parseStruct(structDef *ast.StructType, catoTag, filePath string, fset *token.FileSet, lineNos []int) ([]*resources.FieldInfo, error) {
+func getNestedConfigDefaults(configs map[string][]*resources.FieldInfo) string {
+	defaults := ""
+	for _, fields := range configs {
+		for _, f := range fields {
+			defaults += f.FieldName + " = " + f.DefaultValue + "\n"
+		}
+	}
+	return defaults
+}
+
+func parseStruct(structDef *ast.StructType, catoTag, rootPath, filePath string, fset *token.FileSet, lineNos []int) ([]*resources.FieldInfo, error) {
 	configs := []*resources.FieldInfo{}
 
 	for _, field := range structDef.Fields.List {
@@ -132,7 +143,14 @@ func parseStruct(structDef *ast.StructType, catoTag, filePath string, fset *toke
 					desc = splitVals[2]
 				}
 
-				if typeNameBuf.String() == "string" {
+				if strings.HasPrefix(defaultVal, "url:") {
+					driverName := strings.Split(path.Base(strings.TrimPrefix(defaultVal, "url:")), ".")[0]
+					configs, err := getConfigsToDocument(path.Join(rootPath, strings.TrimPrefix(defaultVal, "url:")), catoTag, rootPath)
+					if err != nil {
+						return nil, err
+					}
+					defaultVal = "url:" + driverName + ":" + getNestedConfigDefaults(configs)
+				} else if typeNameBuf.String() == "string" {
 					defaultVal = fmt.Sprintf("\"%s\"", defaultVal)
 				}
 
@@ -155,7 +173,7 @@ func parseStruct(structDef *ast.StructType, catoTag, filePath string, fset *toke
 	return configs, nil
 }
 
-func getConfigsToDocument(filePath, catoTag string) (map[string][]*resources.FieldInfo, error) {
+func getConfigsToDocument(filePath, catoTag, rootPath string) (map[string][]*resources.FieldInfo, error) {
 	fset := token.NewFileSet()
 	fileTree, err := parser.ParseFile(fset, filePath, nil, parser.ParseComments)
 	if err != nil {
@@ -184,7 +202,7 @@ func getConfigsToDocument(filePath, catoTag string) (map[string][]*resources.Fie
 	})
 
 	for _, s := range structList {
-		c, err := parseStruct(s.StructDef, catoTag, filePath, fset, lineNos)
+		c, err := parseStruct(s.StructDef, catoTag, rootPath, filePath, fset, lineNos)
 		if err != nil {
 			return nil, err
 		}
@@ -226,7 +244,7 @@ func GenerateDocumentation(rootPath string, conf *resources.CatoConfig) (map[str
 
 	filesConfigs := map[string]map[string][]*resources.FieldInfo{}
 	for _, file := range fileList {
-		configs, err := getConfigsToDocument(file, conf.CustomTag)
+		configs, err := getConfigsToDocument(file, conf.CustomTag, rootPath)
 		if err != nil {
 			return nil, fmt.Errorf("cato: error parsing go file: %w", err)
 		}

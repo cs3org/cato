@@ -204,10 +204,10 @@ func (m mgr) ExportConfigs(configs map[string][]*resources.FieldInfo, filePath, 
 			var escapedDefaultValue, tomlPath string
 			var isPointer bool
 			if strings.HasPrefix(f.DefaultValue, "url:") {
-				decodedVal := strings.TrimPrefix(f.DefaultValue, "url:")
-				escapedDefaultValue = fmt.Sprintf(`"[%s]({{< ref "%s" >}})"`, decodedVal, decodedVal)
-				f.DefaultValue = decodedVal
-				tomlPath = strings.ReplaceAll(configName, "/", ".") + "." + f.FieldName
+				defaultSplit := strings.SplitN(f.DefaultValue, ":", 3)
+				escapedDefaultValue = defaultSplit[2]
+				f.DefaultValue = defaultSplit[1]
+				tomlPath = strings.ReplaceAll(configName, "/", ".") + "." + f.FieldName + "." + f.DefaultValue
 				isPointer = true
 			} else {
 				escapedDefaultValue = f.DefaultValue
