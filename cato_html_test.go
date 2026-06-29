@@ -14,6 +14,6 @@ func TestHTML(t *testing.T) {
 	}
 
 	if _, err := GenerateDocumentation(rootPath, conf); err != nil {
-		t.Errorf("GenerateDocumentation(): %w", err)
+		t.Errorf("GenerateDocumentation(): %s", err)
 	}
 }
