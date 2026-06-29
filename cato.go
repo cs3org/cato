@@ -36,7 +36,7 @@ func listGoFiles(rootPath string) ([]string, error) {
 		if err != nil {
 			return err
 		}
-		if goFileRegex.MatchString(info.Name()) {
+		if goFileRegex.MatchString(info.Name()) && !info.IsDir() {
 			fileList = append(fileList, path)
 		}
 		return nil
